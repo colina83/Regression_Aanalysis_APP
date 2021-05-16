@@ -1,4 +1,4 @@
-# Regression_Aanalysis_APP
+# Regression_Aanalysis_app
 Small Dashboard to practice regression model evaluation using the mtcars dataset
 
 ## In order to practice your regression analysis understanding, click the following link:
