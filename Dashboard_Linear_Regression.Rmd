@@ -1,0 +1,257 @@
+---
+title: "Understanding Regression Analysis"
+output: 
+  flexdashboard::flex_dashboard:
+    orientation: columns
+    vertical_layout: fill
+    theme: spacelab
+runtime: shiny
+---
+
+```{r setup, include=FALSE}
+library(flexdashboard)
+library(tidyverse)
+library(ggplot2)
+library(forecast)
+library(lmtest)
+library(ERSA)
+library(bslib)
+library(datasets)
+library(ggcorrplot)
+library(plotly)
+library(lmtest)
+library(sandwich)
+library(caret)
+library(mctest)
+library(DT)
+
+```
+
+
+```{r data preparation}
+
+
+
+d <- mtcars
+l <- names(mtcars)
+
+variables <- l[2:11]
+
+
+
+```
+
+Column {.sidebar data-width=400}
+-----------------------------------------------------------------------
+
+Visualization on how to approach Linear Regression for the mtcars data set, 
+with fuel consumption (mpg) as the predicting variable, you can select numeric
+dependent variables in the box below.
+
+```{r input}
+
+selectInput('XVariable', label = h6('Choose your independent variables'), choices = variables, variables[1:length(variables)], multiple = TRUE)
+
+```
+
+
+
+```{r reactive expression}
+
+model <- reactive({
+  vars <- as.matrix(d[, input$XVariable])
+  lm(mpg ~ vars, data = d)
+  
+})
+
+correlation <- reactive({
+  vars <- as.matrix(d[, input$XVariable])
+  vars <- cbind(d$mpg,vars)
+  cor(vars)
+  
+})
+
+
+h6('Breusch-Pagan Test')
+
+h6 ('If Brausch Pagan test residual p-value is small (less than 0.05 for a 95% interval error), then you have Heteroskedasticity.')
+
+renderPrint({
+  bptest(model())
+  
+})
+
+h6('Heteroskedastic Resistant Standard Error')
+h6 ('The results above is a linear model that test the coefficients of the fitted model
+simply speaking, the coeftest compensates for heretoskedasticity, so if the p-values
+are small then the variables are significant after the correction.')
+
+renderPrint({
+  coeftest(model(), vcov = vcovHC(model(), "HC1"))  
+
+ 
+  
+})
+
+h6('MultiColinearity')
+
+h6('The Variance Inflation Factor indicate which variables suffer from multicollinearity' )
+h6('VIF above 5 means that the independent variables are correlated')
+
+renderPrint({
+  
+  imcdiag(model())
+})
+
+
+
+```
+
+
+
+Column {data-width=500}
+-----------------------------------------------------------------------
+
+### Linear Regression Summary 
+
+```{r model Output}
+
+renderPrint({ 
+   
+summary(model())
+
+})
+
+```
+
+### Correlation
+
+```{r}
+
+renderPlot({
+  
+ ggcorrplot(correlation())
+  
+})
+
+```
+
+Column {data-width=500}
+-----------------------------------------------------------------------
+
+### Predicted consumption vs Actual consumption
+
+```{r predicted vs Actual}
+
+renderPlotly({
+  
+  plot_ly(data = d, y = ~predict(model()), x = ~mpg,
+          type = "scatter", mode = "markers",jitter = 4,
+          marker = list(size = 5,
+                        color = '#FFFFFF',
+                        line = list(color = '#EA6345', 
+                                         width = 2))) %>% 
+          
+            layout(title = '',
+                    yaxis = list(zeroline = FALSE, title = "predicted price", titlefont = list(
+                    family = "Lucida Console, Courier New, monospace", size = 12, color = "#FFFFFF"), tickfont = list(
+                    family = "Lucida Console, Courier New, monospace", size = 10, color = "#FFFFFF"), color =  "white", size = 2),
+                    xaxis = list(zeroline = FALSE, title = "actual price", titlefont = list(
+                    family = "Lucida Console, Courier New, monospace", size = 12, color = "#FFFFFF"), tickfont = list(
+                    family = "Lucida Console, Courier New, monospace", size = 10, color = "#FFFFFF"), color =  "white", size = 7)) %>%
+                    layout(plot_bgcolor='#678EB9', paper_bgcolor='#678EB9')
+          
+          
+  
+  
+  
+})
+
+
+
+```
+
+### Histogram Residuals
+
+```{r histogram}
+
+
+renderPlotly({
+  
+
+plot_ly(d, x = ~round(residuals(model()),2), type = "histogram", marker = list(color = "#EA6345",
+                            line = list(color = "#FFFFFF", width = 1))) %>%   layout(title = '',
+         yaxis = list(zeroline = FALSE, title = "frequency",  titlefont = list(
+  family = "Lucida Console, Courier New, monospace", size = 12, color = "#FFFFFF"), 
+  tickfont = list(
+  family = "Lucida Console, Courier New, monospace", size = 10, color = "#FFFFFF"), color =  "white"),
+         xaxis = list(zeroline = FALSE, title = "residual",  titlefont = list(
+  family = "Lucida Console, Courier New, monospace", size = 12, color = "#FFFFFF"), 
+  tickfont = list(
+  family = "Lucida Console, Courier New, monospace", size = 10, color = "#FFFFFF"), color =  "white")) %>%
+  layout(plot_bgcolor='#678EB9', paper_bgcolor='#678EB9')
+
+
+})
+
+
+
+```
+
+Column {data-width=500}
+-----------------------------------------------------------------------
+
+### Heteroskedasticity - Residual Plot
+
+```{r residuals}
+
+
+
+renderPlotly({
+  res_d <- model()  
+  plot_ly( x = res_d$fitted.values, y = res_d$residuals,
+          type = "scatter", mode = "markers",
+          marker = list(size = 5,
+                        color = '#FFFFFF',
+                        line = list(color = '#EA6345', 
+                                         width = 2))) %>% 
+          
+            layout(title = '',
+                    yaxis = list(zeroline = FALSE, title = "Residuals", titlefont = list(
+                    family = "Lucida Console, Courier New, monospace", size = 12, color = "#FFFFFF"), tickfont = list(
+                    family = "Lucida Console, Courier New, monospace", size = 10, color = "#FFFFFF"), color =  "white", size = 2),
+                    xaxis = list(zeroline = FALSE, title = "Fitted Value", titlefont = list(
+                    family = "Lucida Console, Courier New, monospace", size = 12, color = "#FFFFFF"), tickfont = list(
+                    family = "Lucida Console, Courier New, monospace", size = 10, color = "#FFFFFF"), color =  "white", size = 7)) %>%
+                    layout(plot_bgcolor='#678EB9', paper_bgcolor='#678EB9')
+          
+          
+  
+  
+  
+})
+
+
+
+```
+
+### Detecting Problems in Multiple Regression
+
+```{r hete}
+
+
+h6('Multicoliniarity - aka Correlation of Independent Variables')
+h6("If you are getting an error is because you have only 1 variable")
+
+renderPlot({
+  pairs(d[, input$XVariable], pch =19)
+  
+})
+
+
+
+
+
+```
+
+
